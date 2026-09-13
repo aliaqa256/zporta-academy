@@ -23,7 +23,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **12** | Payments, Enrollment & Subscription Gating | ✅ Completed | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
 | **13** | Mail Magazine & Gated Preview Subsystem | ✅ Completed | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
 | **14** | Feed, Social & Gamification Refactor | ✅ Completed | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
-| **15** | Platform Edge, Bulk Import & Admin Decoupling | ⏳ Pending | [step_15](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_15_platform_edge_bulk_import_and_admin_decoupling.md) | Revert edge views |
+| **15** | Platform Edge, Bulk Import & Admin Decoupling | ✅ Completed | [step_15](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_15_platform_edge_bulk_import_and_admin_decoupling.md) | Revert edge views |
 | **16** | System Integration, Verification & Final Cleanup | ⏳ Pending | [step_16](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_16_system_integration_verification_and_cleanup.md) | Pre-cleanup tag |
 
 ---
@@ -47,6 +47,21 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 15] - Platform Edge, Bulk Import & Admin Decoupling
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `bulk_import`, `notifications`, `pages`, `posts`, and platform edge services into full Hexagonal Architecture:
+    - `bulk_import/domain/`: `ValidationIssue`, `ValidationReportEntity`, `BulkImportJobEntity`, `BulkImportValidationPolicy` (pure curriculum and quiz schema verification, structural validation), exceptions (`BulkImportDomainError`, `InvalidImportPayloadError`).
+    - `bulk_import/application/`: `ImportValidationDTO`, `ImportResultDTO`, `BulkImportRepositoryPort`, `ValidateAndImportCurriculumUseCase`.
+    - `bulk_import/adapters/`: `DjangoBulkImportRepository` (ORM persistence and batch transaction processing).
+    - `bulk_import/composition/`: `container.py` factory constructors (`build_bulk_import_repository`, `build_validate_and_import_curriculum_use_case`).
+    - `notifications/domain/`: `NotificationEntity`, `FCMTokenEntity`, `NotificationFormattingPolicy` (title defaults, body trimming, deep link URL normalization), exceptions (`NotificationDomainError`, `DeviceTokenNotFoundError`).
+    - `notifications/application/`: `NotificationDTO`, `SendPushCommand`, `PushResultDTO`, `NotificationRepositoryPort`, `NotificationDeliveryPort`, `PublishNotificationUseCase`.
+    - `notifications/adapters/`: `DjangoNotificationRepository` (in-app notifications persistence), `FirebaseDeliveryAdapter` (FCM push delivery with zero-fail test mode).
+    - `notifications/composition/`: `container.py` factory constructors (`build_notification_repository`, `build_notification_delivery`, `build_publish_notification_use_case`).
+    - `notifications/views.py`: Refactored `NotificationViewSet` authentication classes for robust API client support across sessions and tokens.
+  - **Tests**: 7 new domain & use-case unit tests (2 in bulk_import, 5 in notifications), 3 characterization contract tests (`test_platform_edge_contracts.py`), 107 total unit tests across all refactored domains passed in 0.020s, 33 characterization safety tests passed in 31.31s. Django system check identified 0 issues and 0 pending migrations.
 
 ### [Step 14] - Feed, Social & Gamification Refactor
 - **Date**: 2026-09-13

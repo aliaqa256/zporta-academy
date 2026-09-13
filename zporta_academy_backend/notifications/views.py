@@ -26,7 +26,6 @@ class NotificationViewSet(
         mixins.UpdateModelMixin, # For marking as read, etc.
         viewsets.GenericViewSet
     ):
-    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
     pagination_class       = None
     serializer_class = NotificationSerializer
