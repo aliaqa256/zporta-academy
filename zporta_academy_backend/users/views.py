@@ -160,62 +160,45 @@ class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        from users.composition.container import build_authenticate_user_use_case
+        from users.application.dtos import AuthenticateUserCommand
+        
         credential = request.data.get('username') # This field will contain either username or email
         password = request.data.get('password')
 
         if not credential or not password:
             return Response({'error': 'Username/Email and password are required.'}, status=HTTP_400_BAD_REQUEST)
 
-        # Try to find a user with either a matching username or email (case-insensitive)
-        user_q = User.objects.filter(Q(username__iexact=credential) | Q(email__iexact=credential))
-        if user_q.exists():
-            user = user_q.first()
-            authenticated_user = authenticate(
-                username=user.username,
-                password=password
-            )
+        use_case = build_authenticate_user_use_case()
+        result = use_case.execute(AuthenticateUserCommand(credential=credential, password=password))
 
-            if authenticated_user:
-                django_login(request, authenticated_user)  # ensure user_logged_in signal fires
-                # 1) Get token & bump preference
-                token, _ = Token.objects.get_or_create(
-                    user=authenticated_user
-                )
-                enrich_user_preference(authenticated_user, request)
+        if result.is_failure:
+            return Response({'error': 'Invalid credentials'}, status=HTTP_400_BAD_REQUEST)
 
-                # 2) Load profile & preference
-                profile, _ = Profile.objects.get_or_create(
-                    user=authenticated_user
-                )
-                pref, _ = UserPreference.objects.get_or_create(
-                    user=authenticated_user
-                )
+        auth_dto = result.unwrap()
+        user_obj = User.objects.get(id=auth_dto.user_id)
+        django_login(request, user_obj)
+        enrich_user_preference(user_obj, request)
 
-                # 3) Build preference payload
-                pref_data = {
-                    'languages_spoken': [
-                        s.id for s in pref.interested_subjects.all()
-                    ],
-                    'location':         pref.location,
-                    'bio':              pref.bio,
-                    'interested_tags':  [
-                        t.id for t in pref.interested_tags.all()
-                    ],
-                }
+        profile = getattr(user_obj, 'profile', None)
+        pref = UserPreference.objects.filter(user=user_obj).first()
+        pref_data = {
+            'languages_spoken': [s.id for s in pref.interested_subjects.all()] if pref else [],
+            'location': pref.location if pref else None,
+            'bio': profile.bio if profile else None,
+            'interested_tags': [t.id for t in pref.interested_tags.all()] if pref else [],
+        }
 
-                return Response({
-                    'token':       token.key,
-                    'id':          authenticated_user.id,
-                    'username':    authenticated_user.username,
-                    'email':       authenticated_user.email,
-                    'role':        profile.role,
-                    'active_guide':profile.active_guide,
-                    'locale':      profile.locale,  # Include locale for i18n
-                    'preferences': pref_data,
-                }, status=HTTP_200_OK)
-
-        return Response({'error': 'Invalid credentials'},
-                        status=HTTP_400_BAD_REQUEST)
+        return Response({
+            'token': auth_dto.token,
+            'id': auth_dto.user_id,
+            'username': auth_dto.username,
+            'email': auth_dto.email,
+            'role': auth_dto.role,
+            'active_guide': auth_dto.active_guide,
+            'locale': getattr(profile, 'locale', 'en') if profile else 'en',
+            'preferences': pref_data,
+        }, status=HTTP_200_OK)
 
 
 class GuideProfileListView(generics.ListAPIView):
@@ -399,62 +382,43 @@ class RegisterView(APIView):
 
     def post(self, request):
         import logging
+        from users.composition.container import build_register_user_use_case
+        from users.application.dtos import RegisterUserCommand
+        from users.domain.exceptions import UsernameAlreadyTakenError, EmailAlreadyRegisteredError, InvalidPasswordError
+        
         logger = logging.getLogger(__name__)
         
         username = request.data.get("username")
         email = request.data.get("email")
         password = request.data.get("password")
-        role = request.data.get("role", "explorer") # Default role
+        role = request.data.get("role", "explorer")
         bio = request.data.get("bio", "")
 
-        # Validation
         if not username or not email or not password:
             return Response({"error": "Username, email, and password are required."}, status=HTTP_400_BAD_REQUEST)
 
-        if User.objects.filter(username=username).exists():
-            return Response({"error": "Username already taken."}, status=HTTP_400_BAD_REQUEST)
+        use_case = build_register_user_use_case()
+        cmd = RegisterUserCommand(
+            username=username,
+            email=email,
+            password=password,
+            role=role,
+            bio=bio
+        )
+        result = use_case.execute(cmd)
 
-        if User.objects.filter(email=email).exists():
-            return Response({"error": "Email already registered."}, status=HTTP_400_BAD_REQUEST)
+        if result.is_success:
+            return Response({"message": result.unwrap()}, status=HTTP_201_CREATED)
 
-        # Create user and profile
-        try:
-            user = User.objects.create_user(username=username, email=email, password=password)
-            
-            # Profile is auto-created by post_save signal.
-            # Update it with the provided role and bio instead of using update_or_create()
-            # to avoid race conditions in production (Gunicorn + multiple workers).
-            if hasattr(user, 'profile') and user.profile:
-                user.profile.role = role
-                user.profile.bio = bio
-                user.profile.save()
-            else:
-                # If profile wasn't created by signal, this is a critical error
-                logger.error(f"Profile not found for newly created user {user.id}")
-                user.delete()  # Clean up orphaned user
-                return Response(
-                    {"error": "An unexpected error occurred during profile creation."},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
-            
-            return Response({"message": "User registered successfully."}, status=HTTP_201_CREATED)
-            
-        except IntegrityError as e:
-            # Catch potential integrity errors during user creation
-            logger.warning(f"Registration IntegrityError: {e}")
-            error_msg = "Registration failed due to a database constraint. The username or email might already exist."
-            if 'username' in str(e).lower():
-                error_msg = "Username already taken."
-            elif 'email' in str(e).lower():
-                error_msg = "Email already registered."
-            return Response({"error": error_msg}, status=HTTP_400_BAD_REQUEST)
-            
-        except Exception as e:
-            logger.error(f"Unexpected Registration Error: {e}", exc_info=True)
-            return Response(
-                {"error": "An unexpected error occurred during registration."},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        err = result.unwrap_error()
+        if isinstance(err, (UsernameAlreadyTakenError, EmailAlreadyRegisteredError, InvalidPasswordError, ValueError)):
+            return Response({"error": str(err.message if hasattr(err, 'message') else err)}, status=HTTP_400_BAD_REQUEST)
+
+        logger.error(f"Unexpected Registration Error: {err}", exc_info=True)
+        return Response(
+            {"error": "An unexpected error occurred during registration."},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
