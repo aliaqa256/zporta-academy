@@ -26,6 +26,7 @@ from .serializers import (
 from quizzes.models import Quiz
 from subjects.models import Subject
 from analytics.models import ActivityEvent
+from intelligence.composition.container import build_get_user_ability_overview_use_case
 
 logger = logging.getLogger(__name__)
 
@@ -45,14 +46,16 @@ class MyAbilityView(APIView):
             serializer = UserAbilityProfileSerializer(profile)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except UserAbilityProfile.DoesNotExist:
-            # User hasn't attempted enough content yet for ability profiling
+            use_case = build_get_user_ability_overview_use_case()
+            res = use_case.execute(user_id=request.user.id, username=request.user.username)
+            dto = res.unwrap()
             return Response({
-                'message': 'Your ability profile is being computed. Please attempt some quizzes first!',
-                'overall_ability_score': None,
-                'ability_level': 'Unranked',
-                'total_quizzes_attempted': 0,
-                'global_rank': None,
-                'percentile': None,
+                'message': dto.message,
+                'overall_ability_score': dto.overall_ability_score,
+                'ability_level': dto.ability_level,
+                'total_quizzes_attempted': dto.total_quizzes_attempted,
+                'global_rank': dto.global_rank,
+                'percentile': dto.percentile,
             }, status=status.HTTP_200_OK)
 
 

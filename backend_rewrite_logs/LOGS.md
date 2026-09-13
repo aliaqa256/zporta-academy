@@ -13,9 +13,9 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **02** | Characterization & Safety Test Harness | ✅ Completed | [step_02](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_02_characterization_and_safety_test_harness.md) | Remove `tests/characterization/` |
 | **03** | Users & Auth Domain Refactor | ✅ Completed | [step_03](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_03_users_and_auth_domain_refactor.md) | Revert `users/` |
 | **04** | Curriculum - Courses & Subjects Refactor | ✅ Completed | [step_04](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_04_curriculum_courses_and_subjects_refactor.md) | Revert `courses/` |
-| **05** | Curriculum - Lessons & Content Gating Refactor | ⏳ Pending | [step_05](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_05_curriculum_lessons_and_content_gating_refactor.md) | Revert `lessons/urls.py` |
-| **06** | Quizzes & Assessment Engine Refactor | ⏳ Pending | [step_06](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_06_quizzes_and_assessment_engine_refactor.md) | Revert `quizzes/urls.py` |
-| **07** | Intelligence & ELO Scoring Analytics Refactor | ⏳ Pending | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/views.py` |
+| **05** | Curriculum - Lessons & Content Gating Refactor | ✅ Completed | [step_05](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_05_curriculum_lessons_and_content_gating_refactor.md) | Revert `lessons/` |
+| **06** | Quizzes & Assessment Engine Refactor | ✅ Completed | [step_06](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_06_quizzes_and_assessment_engine_refactor.md) | Revert `quizzes/` |
+| **07** | Intelligence & ELO Scoring Analytics Refactor | ✅ Completed | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/` |
 | **08** | AI Core & Multi-Provider LLM Gateway | ⏳ Pending | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
 | **09** | DailyCast Podcast Generation Engine Refactor | ⏳ Pending | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
 | **10** | Document & Media Export Subsystem Refactor | ⏳ Pending | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
@@ -34,11 +34,11 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ### Pre-Change Gate:
 - [x] Run `python manage.py check` to verify zero system errors.
-- [x] Run `python manage.py test tests.characterization.test_quizzes_contracts --keepdb`.
+- [x] Run `python manage.py test tests.characterization.test_intelligence_contracts --keepdb`.
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests: `python -m unittest quizzes/tests/domain/test_quiz_domain.py quizzes/tests/application/test_quiz_use_cases.py`.
+- [x] Run pure Domain unit tests: `python -m unittest intelligence/tests/domain/test_intelligence_domain.py intelligence/tests/application/test_intelligence_use_cases.py`.
 - [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
@@ -47,6 +47,18 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 07] - Intelligence & ELO Scoring Analytics Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `intelligence` analytics into full Hexagonal Architecture:
+    - `intelligence/domain/`: `UserAbilityEntity`, `ContentDifficultyEntity`, `MatchScoreEntity`, `EloScore`, `DifficultyTier`, `AbilityLevel`, `EloCalculationPolicy` (ELO expected scores, K-factor adjustments, rating updates), `DifficultyClassificationPolicy` (5-tier and 4-tier classification), `ZpdMatchScoringPolicy` (ZPD score, difficulty gap, preference alignment, topic similarity, recency penalty, why explanations), `AbilityProfileNotFoundError`, `DifficultyProfileNotFoundError`.
+    - `intelligence/application/`: `LearnerAbilityDTO`, `LearningPathItemDTO`, `LearningPathResultDTO`, `EloUpdateCommand`, `EloUpdateResultDTO`, `AbilityRepositoryPort`, `DifficultyRepositoryPort`, `MatchScoreRepositoryPort`, `GetUserAbilityOverviewUseCase`, `CalculateEloUpdateUseCase`.
+    - `intelligence/adapters/`: `DjangoAbilityRepository`, `DjangoDifficultyRepository`, `DjangoMatchScoreRepository`.
+    - `intelligence/composition/`: `container.py` factory constructors (`build_ability_repository`, `build_difficulty_repository`, `build_match_score_repository`, `build_get_user_ability_overview_use_case`, `build_calculate_elo_update_use_case`).
+    - `intelligence/views.py`: Refactored `MyAbilityView` to delegate unranked and user ability retrieval to `GetUserAbilityOverviewUseCase`.
+  - **Tests**: 7 pure domain/application unit tests passed in 0.001s, 51 total unit tests across all refactored domains passed in 0.010s, 15 characterization safety tests passed in 13.15s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 06] - Quizzes & Assessment Engine Refactor
 - **Date**: 2026-09-13
