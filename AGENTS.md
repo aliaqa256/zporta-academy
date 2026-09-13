@@ -24,6 +24,9 @@ Zporta Academy is a full-stack educational and language-learning platform featur
 zporta-academy/
 ├── AGENTS.md                                # This reference guide
 ├── README.md                                # Developer onboarding guide
+├── backend_rewrite_logs/                    # Migration logs, roadmap & step specs
+│   ├── LOGS.md                              # Master rewrite progress & test logs
+│   └── steps/                               # 16 Step migration specification documents
 ├── .agents/                                 # Antigravity customization root
 │   ├── rules/
 │   │   └── code_standards.md                # Coding conventions & guidelines
@@ -32,22 +35,31 @@ zporta-academy/
 │       ├── intelligence-analytics/          # ELO difficulty, match scores, progress insights
 │       ├── media-and-exports/               # WeasyPrint PDF, Word exports, Google TTS
 │       └── teacher-mail-system/             # Teacher config dashboard & Mail Magazine gating
-├── zporta_academy_backend/                  # Django REST API backend
+├── zporta_academy_backend/                  # Django REST API backend (Hexagonal Architecture)
 │   ├── manage.py
 │   ├── zporta/                              # Project settings & URL routing
-│   │   ├── settings/
-│   │   │   ├── base.py
-│   │   │   ├── local.py
-│   │   │   └── production.py
-│   │   └── urls.py                          # Main router & administration path
-│   ├── users/                               # User authentication, profiles, role system
-│   ├── courses/                             # Courses, lessons, enrollment
-│   ├── quizzes/                             # Quizzes, questions, attempts, difficulty explanations
-│   ├── intelligence/                        # AI analytics, user abilities, match scoring
-│   ├── podcasts/                            # DailyCast generation, episodes, audio storage
-│   ├── teachers/                            # Teacher content configurations & preferences
-│   ├── mail_magazine/                       # Mail magazine issues, subscriptions, gated view
-│   └── lessons/                             # Lesson detail, PDF/Word exporters
+│   ├── core/                                # Shared Kernel & cross-domain capabilities
+│   │   ├── shared_kernel/                   # Entity, ValueObject, AggregateRoot, DomainEvent, Result
+│   │   └── media_export/                    # PDF/Word exporters (WeasyPrint, docx)
+│   ├── users/                               # Identity, auth, roles, tokens (Hexagonal)
+│   ├── courses/                             # Curriculum, courses, subjects (Hexagonal)
+│   ├── lessons/                             # Lesson contents, attachments, gating (Hexagonal)
+│   ├── quizzes/                             # Quizzes, questions, attempts, answers (Hexagonal)
+│   ├── intelligence/                        # ELO difficulty scoring & abilities (Hexagonal)
+│   ├── ai_core/                             # Multi-provider LLM gateway & resilience (Hexagonal)
+│   ├── dailycast/                           # DailyCast podcast generation & TTS (Hexagonal)
+│   ├── learning/                            # Spaced repetition & study dashboard (Hexagonal)
+│   ├── enrollment/                          # Access control & enrollment policies (Hexagonal)
+│   ├── payments/                            # Stripe gateway & promo discount policies (Hexagonal)
+│   ├── mailmagazine/                        # Gated mail magazine & subscriber tools (Hexagonal)
+│   ├── feed/                                # Recommendation & ranking feed (Hexagonal)
+│   ├── social/                              # Guide requests & teacher-student links (Hexagonal)
+│   ├── gamification/                        # Activity point tracking & daily streaks (Hexagonal)
+│   ├── mentions/                            # @username parsing policy & notifications (Hexagonal)
+│   ├── bulk_import/                         # Curriculum JSON validator & batch loader (Hexagonal)
+│   ├── notifications/                       # In-app inbox & Firebase push delivery (Hexagonal)
+│   ├── tests/characterization/              # Characterization regression harness (33 contract tests)
+│   └── zporta/                              # Settings & URLs
 └── zporta_academy_frontend/
     └── next-frontend/                       # Next.js web application
         ├── src/
