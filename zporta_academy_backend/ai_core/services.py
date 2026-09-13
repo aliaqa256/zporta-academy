@@ -37,6 +37,8 @@ from django.core.files.base import ContentFile
 from django.utils import timezone
 
 from .models import AiMemory, AiProviderConfig, AiUsageLog
+from ai_core.application.dtos import GenerateTextCommand, GenerateAudioCommand
+from ai_core.composition.container import build_generate_text_use_case, build_generate_audio_use_case
 
 logger = logging.getLogger(__name__)
 

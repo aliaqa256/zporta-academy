@@ -16,7 +16,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **05** | Curriculum - Lessons & Content Gating Refactor | ✅ Completed | [step_05](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_05_curriculum_lessons_and_content_gating_refactor.md) | Revert `lessons/` |
 | **06** | Quizzes & Assessment Engine Refactor | ✅ Completed | [step_06](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_06_quizzes_and_assessment_engine_refactor.md) | Revert `quizzes/` |
 | **07** | Intelligence & ELO Scoring Analytics Refactor | ✅ Completed | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/` |
-| **08** | AI Core & Multi-Provider LLM Gateway | ⏳ Pending | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
+| **08** | AI Core & Multi-Provider LLM Gateway | ✅ Completed | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
 | **09** | DailyCast Podcast Generation Engine Refactor | ⏳ Pending | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
 | **10** | Document & Media Export Subsystem Refactor | ⏳ Pending | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
 | **11** | Learning, Spaced Repetition & Study Flow | ⏳ Pending | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
@@ -47,6 +47,20 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 08] - AI Core & Multi-Provider LLM Gateway Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `ai_core` into full Hexagonal Architecture:
+    - `ai_core/domain/`: `LLMRequestEntity`, `LLMResponseEntity`, `TTSRequestEntity`, `TTSResponseEntity`, `AiMemoryEntity`, `AiProviderConfigEntity`, `AiUsageLogEntity`, `ModelProvider`, `ModelTier`, `RequestType`, `SelectionMode`, `PromptHashPolicy` (SHA256 prompt hashing for caching & deduplication), `ProviderSelectionPolicy` (deterministic selection based on tier and model availability), `CostEstimationPolicy` (token calculation & price estimation per 1k input/output tokens), exceptions (`LLMProviderError`, `TTSProviderError`, `UnsupportedModelError`, `DailyTokenLimitExceededError`).
+    - `ai_core/application/`: `GenerateTextCommand`, `TextGenerationResultDTO`, `GenerateAudioCommand`, `AudioGenerationResultDTO`, `CostSummaryDTO`, `LLMProviderPort`, `TTSProviderPort`, `AiMemoryRepositoryPort`, `AiUsageLogRepositoryPort`, `AiProviderConfigRepositoryPort`, `GenerateTextUseCase`, `GenerateAudioUseCase`.
+    - `ai_core/adapters/`:
+      - `outbound/persistence/`: `DjangoAiMemoryRepository`, `DjangoAiUsageLogRepository`, `DjangoAiProviderConfigRepository`.
+      - `outbound/providers/`: `OpenAILLMAdapter`, `GeminiLLMAdapter`, `ClaudeLLMAdapter`, `ElevenLabsTTSAdapter`, `GoogleTTSAdapter`.
+    - `ai_core/composition/`: `container.py` factory constructors (`build_ai_memory_repository`, `build_ai_usage_log_repository`, `build_ai_provider_config_repository`, `build_generate_text_use_case`, `build_generate_audio_use_case`).
+    - `ai_core/services.py`: Integrated use cases while retaining backward-compatible signatures for interactive dailycasts, podcasts, and mail magazine AI generation.
+  - **Tests**: 5 domain & application unit tests passed in 0.001s, 56 total unit tests across all refactored domains passed in 0.010s, 15 characterization safety tests passed in 13.06s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 07] - Intelligence & ELO Scoring Analytics Refactor
 - **Date**: 2026-09-13
