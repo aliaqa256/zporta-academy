@@ -45,11 +45,63 @@ The backend is being restructured from monolithic, framework-tangled Django spag
 
 ---
 
-## 2. The 7 Non-Negotiable Golden Rules
+## 2. Completeness & Scope Guarantee
+
+Upon completing the 16 steps defined in `backend_rewrite_logs/steps/`:
+1. **Every single domain** (Users, Courses, Lessons, Quizzes, Intelligence/ELO, AI Core, DailyCast, WeasyPrint Media, Learning/SM-2, Payments, MailMagazine, Feed/Social, Bulk Import, Admin, SEO) is 100% cleanly decoupled into Hexagonal boundaries.
+2. **All spaghetti monoliths are dismantled**: Monolithic 91KB admin files, 54KB AJAX views, 52KB export views, and 48KB analyzer files are broken down into single-responsibility use cases, pure domain policies, and thin adapters.
+3. **Dead code & duplicate scripts are pruned**: Obsolete scripts and duplicate logic are safely eliminated with characterization test validation.
+4. **No further restructuring will be required**: The codebase will be modular, testable in milliseconds with pure Python fakes, and maintainable for long-term production scaling.
+
+---
+
+## 3. Mandatory Pre-Change & Post-Change Validation Protocol
+
+Every AI agent and developer **MUST** follow this strict verification protocol before and after making code modifications in any step:
+
+```
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    PRE-CHANGE VALIDATION GATE (MANDATORY)                     │
+├───────────────────────────────────────────────────────────────────────────────┤
+│ 1. Run Django System Check:                                                   │
+│    python manage.py check                                                     │
+│ 2. Run Domain Characterization Test Suite:                                    │
+│    python manage.py test tests.characterization.<domain_test_file>               │
+│ 3. Record Baseline: Verify status code, response schema, and query behavior.   │
+└───────────────────────────────────────┬───────────────────────────────────────┘
+                                        │
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                         APPLY HEXAGONAL REFACTORING                           │
+│  Extract Domain Rules -> Define Ports/DTOs -> Implement Use Case ->           │
+│  Implement Adapters -> Wire in Container -> Slim Down Views / Admin           │
+└───────────────────────────────────────┬───────────────────────────────────────┘
+                                        │
+                                        ▼
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                    POST-CHANGE VALIDATION GATE (MANDATORY)                    │
+├───────────────────────────────────────────────────────────────────────────────┤
+│ 1. Run Pure Domain Unit Tests (0ms execution, zero DB):                        │
+│    pytest <app_name>/tests/domain/                                            │
+│ 2. Run Application Use Case Tests (using in-memory fakes):                    │
+│    pytest <app_name>/tests/application/                                       │
+│ 3. Run Outbound Adapter Integration Tests:                                    │
+│    pytest <app_name>/tests/adapters/                                          │
+│ 4. Run Characterization & Contract Regression Suite:                          │
+│    python manage.py test tests.characterization                               │
+│ 5. Run Django System & Migration Check:                                       │
+│    python manage.py check && python manage.py makemigrations --check --dry-run │
+│ 6. Update LOGS.md with test output evidence and mark step status.             │
+└───────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. The 7 Non-Negotiable Golden Rules
 
 1. **Zero Regression Guarantee**:
    - Every public REST endpoint, JSON response contract, URL pattern, and query parameter **must remain 100% backwards compatible**.
-   - The Next.js frontend must continue to function without any breaking changes.
+   - The Next.js frontend must continue to function seamlessly without any breaking changes.
 2. **Strict Inward Dependency Rule**:
    - `domain/` depends on **nothing external** (no `django.*`, `rest_framework.*`, `requests`, `openai`, etc.).
    - `application/` depends only on `domain/` and its own port definitions.
@@ -65,19 +117,19 @@ The backend is being restructured from monolithic, framework-tangled Django spag
    - PDF/Word rendering (WeasyPrint, python-docx) $\rightarrow$ `DocumentRendererPort`
    - Notifications / Emails $\rightarrow$ `NotificationPort` / `EmailSenderPort`
 5. **Explicit Composition Root**:
-   - Dependency injection is handled centrally in `composition/containers.py` or dedicated factory functions (e.g. `build_submit_quiz_use_case()`).
+   - Dependency injection is handled centrally in `composition/container.py` or dedicated factory functions (e.g. `build_submit_quiz_use_case()`).
    - No hidden global service locators or implicit monkey patching.
 6. **Error Translation Across Boundaries**:
    - Database/infrastructure exceptions are caught in Outbound Adapters and translated to Domain / Application exceptions.
    - Inbound HTTP Adapters translate Domain / Application exceptions into appropriate HTTP status codes (400, 403, 404, 409, 422).
 7. **Step-by-Step Characterization & Verification**:
    - Execute one step at a time as documented in `backend_rewrite_logs/steps/`.
-   - Run verification tests before and after modifying any code.
+   - Never skip the Pre-Change or Post-Change validation gates.
    - Update `backend_rewrite_logs/LOGS.md` after completing each step.
 
 ---
 
-## 3. Standard App Directory Structure
+## 5. Standard App Directory Structure
 
 For each Django domain app (e.g. `quizzes/`, `courses/`, `dailycast/`, `users/`, `intelligence/`), structure the refactored code as follows:
 
@@ -130,52 +182,3 @@ For each Django domain app (e.g. `quizzes/`, `courses/`, `dailycast/`, `users/`,
     ├── adapters/                         # Integration tests for ORM repos & HTTP views
     └── e2e/                              # End-to-end API regression tests
 ```
-
----
-
-## 4. Python Typing & Clean Code Standards
-
-- **Use Python 3.10+ Type Hints**: All ports, entities, DTOs, and use cases must be strictly typed (`dataclasses`, `Protocol`, `ABC`, `Optional`, `list`, `dict`, `tuple`).
-- **Use `@dataclass(frozen=True)`** for Value Objects and DTOs to enforce immutability.
-- **Port Definitions with `typing.Protocol` or `abc.ABC`**:
-  ```python
-  from abc import ABC, abstractmethod
-
-  class QuizRepositoryPort(ABC):
-      @abstractmethod
-      def get_by_id(self, quiz_id: int) -> Optional[QuizEntity]:
-          ...
-      @abstractmethod
-      def save_attempt(self, attempt: QuizAttemptEntity) -> QuizAttemptEntity:
-          ...
-  ```
-- **Use Cases Receive Ports via `__init__`**:
-  ```python
-  class SubmitQuizAttemptUseCase:
-      def __init__(self, quiz_repo: QuizRepositoryPort, score_policy: ScoringPolicy):
-          self._quiz_repo = quiz_repo
-          self._score_policy = score_policy
-
-      def execute(self, command: SubmitAttemptCommand) -> AttemptResultDTO:
-          # Pure orchestration
-          ...
-  ```
-
----
-
-## 5. Workflow Execution Instructions for Agents
-
-1. **Read the Target Step File**: Open and review `backend_rewrite_logs/steps/step_XX_....md`.
-2. **Check Pre-requisites**: Run characterization tests to verify current baseline behavior.
-3. **Execute Incrementally**:
-   - Extract domain entities & value objects.
-   - Define outbound ports & DTOs.
-   - Implement the use case orchestrator.
-   - Implement the ORM repository / external adapter.
-   - Refactor the DRF View / Admin action to delegate to the use case via composition root.
-4. **Verify Behavior**:
-   - Run domain unit tests (instant execution).
-   - Run DRF integration tests & check API responses.
-   - Run `python manage.py check` to verify Django system integrity.
-5. **Update Logs**: Record completed changes and verification results in `backend_rewrite_logs/LOGS.md`.
-6. **Ensure Clean Git State**: Keep commits atomic and traceable to the step ID.

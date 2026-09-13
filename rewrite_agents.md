@@ -12,5 +12,8 @@ Please refer to the authoritative specification in [backend_rewrite_logs/rewrite
 - **Application Layer**: Use case orchestrators, Inbound/Outbound Port contracts (Protocols/ABCs), input/output DTOs.
 - **Adapters Layer**: Inbound (DRF ViewSets, Admin actions, CLI commands, Celery tasks) & Outbound (Django ORM repositories, AI LLM clients, TTS synthesis, WeasyPrint PDF engines).
 - **Zero Regression**: Preserves 100% of existing API endpoints, URL routes, JSON serialization schemas, and database tables.
+- **Mandatory Validation Protocol**:
+  - **Pre-Change**: Run Django system check + Characterization test suite $\rightarrow$ record baseline.
+  - **Post-Change**: Run Domain Unit tests $\rightarrow$ Use-case Application tests $\rightarrow$ Adapter Integration tests $\rightarrow$ Contract Regression tests $\rightarrow$ Django System & Migration checks.
 - **Step Roadmap**: Step-by-step documentation located in [backend_rewrite_logs/steps/](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/).
 - **Activity Log**: Keep [backend_rewrite_logs/LOGS.md](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/LOGS.md) updated after completing each step.
