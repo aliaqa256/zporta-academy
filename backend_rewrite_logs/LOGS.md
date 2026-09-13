@@ -22,7 +22,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **11** | Learning, Spaced Repetition & Study Flow | ✅ Completed | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
 | **12** | Payments, Enrollment & Subscription Gating | ✅ Completed | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
 | **13** | Mail Magazine & Gated Preview Subsystem | ✅ Completed | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
-| **14** | Feed, Social & Gamification Refactor | ⏳ Pending | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
+| **14** | Feed, Social & Gamification Refactor | ✅ Completed | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
 | **15** | Platform Edge, Bulk Import & Admin Decoupling | ⏳ Pending | [step_15](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_15_platform_edge_bulk_import_and_admin_decoupling.md) | Revert edge views |
 | **16** | System Integration, Verification & Final Cleanup | ⏳ Pending | [step_16](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_16_system_integration_verification_and_cleanup.md) | Pre-cleanup tag |
 
@@ -47,6 +47,26 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 14] - Feed, Social & Gamification Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `feed`, `social`, `gamification`, and `mentions` apps into full Hexagonal Architecture:
+    - `feed/domain/`: `FeedQuizItemEntity`, `PersonalizedFeedEntity`, `FeedRankingPolicy` (pure ranking, match score sorting, exclude filters), exceptions (`FeedDomainError`, `QuizNotFoundError`).
+    - `feed/application/`: `FeedQuizItemDTO`, `PersonalizedFeedDTO`, `FeedRepositoryPort`, `GetPersonalizedFeedUseCase`.
+    - `feed/adapters/`: `DjangoFeedRepository`, cross-database safe language filter helper `_filter_by_language` supporting PostgreSQL and SQLite JSON arrays.
+    - `feed/composition/`: `container.py` factory constructors (`build_feed_repository`, `build_get_personalized_feed_use_case`).
+    - `social/domain/`: `GuideRequestEntity`, `GuideRequestStatus`, `ConnectedUserCardEntity`, `GuideRequestPolicy` (cancel and response authorization rules), exceptions (`SocialDomainError`, `GuideRequestAlreadyExistsError`, `UnauthorizedSocialActionError`, `GuideRequestNotFoundError`).
+    - `social/application/`: `GuideRequestDTO`, `ConnectedUserDTO`, `SocialRepositoryPort`, `ManageGuideRequestUseCase`.
+    - `social/adapters/`: `DjangoSocialRepository` (ORM persistence for guide relationships).
+    - `social/composition/`: `container.py` factory constructors (`build_social_repository`, `build_manage_guide_request_use_case`).
+    - `social/views.py`: Refactored `GuideRequestViewSet` actions (`cancel`, `accept`, `deny`) to delegate to `ManageGuideRequestUseCase`.
+    - `gamification/domain/`: `ActivityEntity`, `UserScoreEntity`, `GamificationPointsPolicy` (pure points map for all activity types), `StreakPolicy` (continuous daily streak calculation from chronological dates), exceptions (`GamificationDomainError`, `InvalidActivityTypeError`).
+    - `gamification/application/`: `ActivityLogCommand`, `UserScoreDTO`, `GamificationRepositoryPort`, `RecordActivityUseCase`.
+    - `gamification/adapters/`: `DjangoGamificationRepository` (ORM persistence and recalculations).
+    - `gamification/composition/`: `container.py` factory constructors (`build_gamification_repository`, `build_record_activity_use_case`).
+    - `mentions/domain/`: `MentionParserPolicy` (pure regex extraction and deduplication of `@username` mentions).
+  - **Tests**: 15 new domain & use-case unit tests (2 in feed, 4 in social, 5 in gamification, 2 in mentions, plus domain tests), 3 characterization contract tests (`test_feed_social_contracts.py`), 100 total unit tests across all refactored domains passed in 0.020s, 30 characterization safety tests passed in 28.41s. Django system check identified 0 issues and 0 pending migrations.
 
 ### [Step 13] - Mail Magazine & Gated Preview Subsystem Refactor
 - **Date**: 2026-09-13

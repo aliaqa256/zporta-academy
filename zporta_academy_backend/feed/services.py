@@ -48,6 +48,16 @@ def _base_pool(user):
     return qs
 
 
+def _filter_by_language(qs, lang):
+    """Cross-database safe JSONField language filter (PostgreSQL + SQLite compatible)."""
+    if not lang:
+        return qs
+    from django.db import connection
+    if connection.vendor == 'postgresql':
+        return qs.filter(languages__contains=[lang])
+    return qs.filter(languages__icontains=str(lang))
+
+
 def _language_bucket_selection(pool_qs, limit, prefs):
     """
     From pool_qs, pick:
@@ -61,8 +71,8 @@ def _language_bucket_selection(pool_qs, limit, prefs):
 
     primary_lang = prefs.languages_spoken[0] if prefs.languages_spoken else "en"
     # Buckets
-    primary_qs = pool_qs.filter(languages__contains=[primary_lang])
-    english_qs = pool_qs.filter(languages__contains=["en"]).exclude(id__in=primary_qs)
+    primary_qs = _filter_by_language(pool_qs, primary_lang)
+    english_qs = _filter_by_language(pool_qs, "en").exclude(id__in=primary_qs)
     other_qs   = pool_qs.exclude(id__in=primary_qs).exclude(id__in=english_qs)
 
     # Counts
@@ -88,24 +98,28 @@ def _location_reorder(quizzes, prefs):
         return quizzes
 
     lower_loc = prefs.location.lower()
-    same = [q for q in quizzes if q.detected_location and lower_loc in q.detected_location.lower()]
-    other = [q for q in quizzes if q not in same]
+    in_loc    = [q for q in quizzes if (q.detected_location or '').lower() == lower_loc]
+    out_loc   = [q for q in quizzes if (q.detected_location or '').lower() != lower_loc]
 
-    n_same = int(len(quizzes) * 0.60)
-    ordered = same[:n_same] + other[:len(quizzes) - n_same]
+    target_in = int(len(quizzes) * 0.60)
+    final_list = in_loc[:target_in]
+    # fill from out_loc
+    needed = len(quizzes) - len(final_list)
+    final_list += out_loc[:needed]
+    # if still short, append remaining in_loc
+    if len(final_list) < len(quizzes):
+        final_list += in_loc[target_in:]
 
-    # In case of any missing (due to small pools), append them
-    for q in quizzes:
-        if q not in ordered:
-            ordered.append(q)
-
-    return ordered
+    return final_list
 
 
-def get_explore_quizzes(user, limit=5):
+def get_explore_quizzes(user, limit=10):
     """
-    “Explore” feed: newest quizzes, but STRICTLY in the user’s subjects + languages,
-    then reorder by location preference.
+    Explore:
+      - Subject: must be in user's interested_subjects (via _base_pool)
+      - Location: prioritized via _location_reorder
+      - Language: preference-aware fallback
+      - Exclude: None (all published quizzes in subject pool eligible)
     """
     prefs = _get_user_prefs(user)
     pool  = _base_pool(user)
@@ -118,11 +132,11 @@ def get_explore_quizzes(user, limit=5):
     )
     primary = (prefs.languages_spoken[0] if prefs.languages_spoken else '') or ''
     primary = primary.lower()
-    filtered = filtered.filter(languages__contains=[primary]) if primary else filtered
+    filtered = _filter_by_language(filtered, primary) if primary else filtered
 
     # fallback English if no primary-language items available
     if filtered.count() < limit:
-        filtered = filtered | pool.filter(languages__contains=["en"])
+        filtered = filtered | _filter_by_language(pool, "en")
     # ultimate fallback: if still empty, take newest subject-only pool
     if filtered.count() == 0:
         filtered = pool

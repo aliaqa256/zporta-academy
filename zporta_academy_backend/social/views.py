@@ -33,37 +33,48 @@ class GuideRequestViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        guide_request = self.get_object()
-        # Only the explorer can cancel their own request.
-        if guide_request.explorer != request.user:
+        from social.composition.container import build_manage_guide_request_use_case
+        from social.domain.exceptions import UnauthorizedSocialActionError, GuideRequestNotFoundError
+
+        use_case = build_manage_guide_request_use_case()
+        try:
+            use_case.cancel_request(request_id=int(pk), user_id=request.user.id)
+            Notification.objects.filter(guide_request_id=pk).delete()
+            return Response({"detail": "Guide request cancelled."}, status=status.HTTP_200_OK)
+        except UnauthorizedSocialActionError:
             return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
-        # Store the id before deletion.
-        gr_id = guide_request.id
-        # Delete the request.
-        guide_request.delete()
-        # Delete related notifications using the stored ID.
-        Notification.objects.filter(guide_request_id=gr_id).delete()
-        return Response({"detail": "Guide request cancelled."}, status=status.HTTP_200_OK)
+        except GuideRequestNotFoundError:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
-        guide_request = self.get_object()
-        if guide_request.guide != request.user:
+        from social.composition.container import build_manage_guide_request_use_case
+        from social.domain.exceptions import UnauthorizedSocialActionError, GuideRequestNotFoundError
+
+        use_case = build_manage_guide_request_use_case()
+        try:
+            use_case.respond_to_request(request_id=int(pk), user_id=request.user.id, accept=True)
+            Notification.objects.filter(guide_request_id=pk).update(is_read=True)
+            return Response({"detail": "Guide request accepted."}, status=status.HTTP_200_OK)
+        except UnauthorizedSocialActionError:
             return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
-        guide_request.status = 'accepted'
-        guide_request.save()
-        Notification.objects.filter(guide_request=guide_request).update(is_read=True)
-        return Response({"detail": "Guide request accepted."}, status=status.HTTP_200_OK)
+        except GuideRequestNotFoundError:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=True, methods=['post'])
     def deny(self, request, pk=None):
-        guide_request = self.get_object()
-        if guide_request.guide != request.user:
+        from social.composition.container import build_manage_guide_request_use_case
+        from social.domain.exceptions import UnauthorizedSocialActionError, GuideRequestNotFoundError
+
+        use_case = build_manage_guide_request_use_case()
+        try:
+            use_case.respond_to_request(request_id=int(pk), user_id=request.user.id, accept=False)
+            Notification.objects.filter(guide_request_id=pk).update(is_read=True)
+            return Response({"detail": "Guide request declined."}, status=status.HTTP_200_OK)
+        except UnauthorizedSocialActionError:
             return Response({"detail": "Not authorized."}, status=status.HTTP_403_FORBIDDEN)
-        guide_request.status = 'declined'
-        guide_request.save()
-        Notification.objects.filter(guide_request=guide_request).update(is_read=True)
-        return Response({"detail": "Guide request declined."}, status=status.HTTP_200_OK)
+        except GuideRequestNotFoundError:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
