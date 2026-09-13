@@ -148,7 +148,7 @@ WSGI_APPLICATION = 'zporta.wsgi.application'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'zporta.authentication.CsrfExemptSessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.AllowAny',
@@ -215,11 +215,21 @@ STATICFILES_DIRS = [BASE_DIR / "static"] # For local development static files
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3000",
-    "https://zportaacademy.com",      # Allow frontend origin with HTTPS
-    "https://www.zportaacademy.com",  # Allow www subdomain if used
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://zportaacademy.com",
+    "https://www.zportaacademy.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://zportaacademy.com",
+    "https://www.zportaacademy.com",
+]
 STATIC_ROOT = BASE_DIR / 'staticfiles' # For collectstatic in production
 
 # --- Dailycast prototype settings ---

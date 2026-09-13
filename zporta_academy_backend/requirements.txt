@@ -59,7 +59,7 @@ uritemplate==4.1.1
 urllib3==2.3.0
 wrapt==1.17.2
 celery==5.3.6
-mysqlclient==2.2.6
+# mysqlclient==2.2.6  # Optional C driver; PyMySQL is used instead
 gunicorn==21.2.0
 uvicorn==0.27.1
 firebase-admin==6.6.0
