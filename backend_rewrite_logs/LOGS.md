@@ -18,7 +18,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **07** | Intelligence & ELO Scoring Analytics Refactor | ✅ Completed | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/` |
 | **08** | AI Core & Multi-Provider LLM Gateway | ✅ Completed | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
 | **09** | DailyCast Podcast Generation Engine Refactor | ✅ Completed | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
-| **10** | Document & Media Export Subsystem Refactor | ⏳ Pending | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
+| **10** | Document & Media Export Subsystem Refactor | ✅ Completed | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
 | **11** | Learning, Spaced Repetition & Study Flow | ⏳ Pending | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
 | **12** | Payments, Enrollment & Subscription Gating | ⏳ Pending | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
 | **13** | Mail Magazine & Gated Preview Subsystem | ⏳ Pending | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
@@ -47,6 +47,17 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 10] - Document & Media Export Subsystem Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured document and media exports under `core/media_export/` into full Hexagonal Architecture:
+    - `core/media_export/domain/`: `DocumentExportEntity`, `ExportResultEntity`, `MediaAssetEntity`, `ExportFormat`, `MediaType`, `HtmlSanitizationPolicy` (cleans scripts and contenteditable, injects A4 pagination, Noto Sans CJK JP fonts, and custom styles), `ExportFilenamePolicy` (generates standard download filenames), domain exceptions (`ExportError`, `UnsupportedExportFormatError`, `RenderingError`, `MediaStorageError`).
+    - `core/media_export/application/`: `ExportLessonCommand`, `ExportResultDTO`, `DocumentRendererPort`, `MediaStoragePort`, `ExportLessonDocumentUseCase`.
+    - `core/media_export/adapters/`: `WeasyPrintRendererAdapter` (high-fidelity PDF with ReportLab fallback), `DocxRendererAdapter` (Word document generator), `DjangoMediaStorageAdapter`.
+    - `core/media_export/composition/`: `container.py` factory constructors (`build_document_renderer_adapter`, `build_media_storage_adapter`, `build_export_lesson_document_use_case`).
+  - **Tests**: 6 domain/use-case unit tests passed in 0.001s, 59 total unit tests across all refactored domains passed in 0.011s, 19 characterization safety tests passed in 17.16s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 09] - DailyCast Podcast Generation Engine Refactor
 - **Date**: 2026-09-13
