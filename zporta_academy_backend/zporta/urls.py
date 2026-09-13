@@ -53,6 +53,7 @@ urlpatterns = [
     path('api/feed/',       include('feed.urls')),
     path('api/tags/',       include('tags.urls')),
     path('api/',            include('mailmagazine.urls')),
+    path('api/',            include('dailycast.urls')),  # Podcasts API endpoints
     path('api/admin/ajax/', include('dailycast.ajax_urls')),  # AJAX endpoints for admin forms
     path('admin/dailycast/dashboard/', include('dailycast.dashboard_urls')),  # AI performance dashboard
     path('api/bulk-import/', include('bulk_import.urls')),  # Bulk import courses/lessons/quizzes

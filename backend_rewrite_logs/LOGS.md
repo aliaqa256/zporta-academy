@@ -17,7 +17,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **06** | Quizzes & Assessment Engine Refactor | ✅ Completed | [step_06](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_06_quizzes_and_assessment_engine_refactor.md) | Revert `quizzes/` |
 | **07** | Intelligence & ELO Scoring Analytics Refactor | ✅ Completed | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/` |
 | **08** | AI Core & Multi-Provider LLM Gateway | ✅ Completed | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
-| **09** | DailyCast Podcast Generation Engine Refactor | ⏳ Pending | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
+| **09** | DailyCast Podcast Generation Engine Refactor | ✅ Completed | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
 | **10** | Document & Media Export Subsystem Refactor | ⏳ Pending | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
 | **11** | Learning, Spaced Repetition & Study Flow | ⏳ Pending | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
 | **12** | Payments, Enrollment & Subscription Gating | ⏳ Pending | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
@@ -47,6 +47,18 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 09] - DailyCast Podcast Generation Engine Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `dailycast` into full Hexagonal Architecture:
+    - `dailycast/domain/`: `DailyPodcastEntity`, `PodcastScriptEntity`, `ScriptSegment`, `AudioTrackEntity`, `PodcastStatus`, `OutputFormat`, `ReplySize`, `MonthRange`, `ScriptValidationPolicy` (timing tags, question extraction, word limits), `PodcastAccuracyPolicy` (evaluates readiness, issues, warnings, duration, and recommendation), `ProficiencyEvaluationPolicy` (CEFR level mapping & WPM duration calculation), domain exceptions (`DailycastError`, `DailyPodcastNotFoundError`, `DailycastCooldownError`, `InvalidScriptFormatError`, `AudioSynthesisError`).
+    - `dailycast/application/`: `GeneratePodcastCommand`, `SubmitAnswersCommand`, `PodcastDetailDTO`, `PodcastSummaryDTO`, `AccuracyCheckResultDTO`, `StudentProgressDTO`, `DailyCastRepositoryPort`, `PodcastTTSPort`, `PodcastStitcherPort`, `CreatePodcastUseCase`, `GetPodcastDetailUseCase`, `EvaluatePodcastAccuracyUseCase`, `SubmitPodcastAnswersUseCase`, `GetStudentProgressUseCase`.
+    - `dailycast/adapters/`: `DjangoDailyCastRepository` (persistence and user learning stats aggregation), `PollyTTSAdapter`, `PydubAudioStitcherAdapter`.
+    - `dailycast/composition/`: `container.py` factory constructors (`build_dailycast_repository`, `build_podcast_tts_adapter`, `build_audio_stitcher_adapter`, `build_create_podcast_use_case`, `build_get_podcast_detail_use_case`, `build_evaluate_podcast_accuracy_use_case`, `build_submit_podcast_answers_use_case`, `build_get_student_progress_use_case`).
+    - `dailycast/urls.py` & `dailycast/views_api.py`: Mounted clean REST router and refactored `DailyPodcastViewSet` to delegate `create`, `accuracy-check`, `progress`, and `answers` directly to use cases through container composition.
+  - **Tests**: 8 pure domain/use-case unit tests passed in 0.003s, 53 total unit tests across all refactored domains passed in 0.011s, 19 characterization safety tests passed in 17.47s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 08] - AI Core & Multi-Provider LLM Gateway Refactor
 - **Date**: 2026-09-13
