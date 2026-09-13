@@ -21,7 +21,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **10** | Document & Media Export Subsystem Refactor | ✅ Completed | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
 | **11** | Learning, Spaced Repetition & Study Flow | ✅ Completed | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
 | **12** | Payments, Enrollment & Subscription Gating | ✅ Completed | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
-| **13** | Mail Magazine & Gated Preview Subsystem | ⏳ Pending | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
+| **13** | Mail Magazine & Gated Preview Subsystem | ✅ Completed | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
 | **14** | Feed, Social & Gamification Refactor | ⏳ Pending | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
 | **15** | Platform Edge, Bulk Import & Admin Decoupling | ⏳ Pending | [step_15](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_15_platform_edge_bulk_import_and_admin_decoupling.md) | Revert edge views |
 | **16** | System Integration, Verification & Final Cleanup | ⏳ Pending | [step_16](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_16_system_integration_verification_and_cleanup.md) | Pre-cleanup tag |
@@ -47,6 +47,17 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 13] - Mail Magazine & Gated Preview Subsystem Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `mailmagazine` app into full Hexagonal Architecture:
+    - `mailmagazine/domain/`: `RecipientInfo`, `MailMagazineTemplateEntity`, `TeacherMailMagazineEntity`, `MailMagazineIssueEntity`, `RecipientGroupEntity`, `GatedPreviewPolicy` (pure access authorization and preview teaser truncation), `TemplateRenderingPolicy` (variable placeholder replacement and email HTML wrapper generation), `RecipientEligibilityPolicy` (opt-in and email validation filtering), domain exceptions (`MailMagazineDomainError`, `MailMagazineAccessDeniedError`, `MailMagazineIssueNotFoundError`, `NoEligibleRecipientsError`, `InvalidTemplateError`).
+    - `mailmagazine/application/`: `MailIssueDetailDTO`, `SendMagazineCommand`, `SendMagazineResultDTO`, `RecipientDTO`, `MailTemplateDTO`, `MailMagazineRepositoryPort`, `EmailSenderPort`, `GetMailIssueDetailUseCase`, `DispatchMailMagazineUseCase`.
+    - `mailmagazine/adapters/`: `DjangoMailMagazineRepository` (ORM persistence), `DjangoEmailSenderAdapter` (Django Core Mail multipart email delivery).
+    - `mailmagazine/composition/`: `container.py` factory constructors (`build_mail_magazine_repository`, `build_email_sender`, `build_get_mail_issue_detail_use_case`, `build_dispatch_mail_magazine_use_case`).
+    - `mailmagazine/views.py`: Refactored `TeacherMailMagazineViewSet.send_email` and `MailMagazineIssueDetailView` to delegate to domain use cases.
+  - **Tests**: 8 new domain & use-case unit tests (`test_mail_domain.py`, `test_mail_use_cases.py`), 4 characterization contract tests (`test_mailmagazine_contracts.py`), 85 total unit tests across all refactored domains passed in 0.015s, 27 characterization safety tests passed in 23.37s. Django system check identified 0 issues and 0 pending migrations.
 
 ### [Step 12] - Payments, Enrollment & Subscription Gating Refactor
 - **Date**: 2026-09-13

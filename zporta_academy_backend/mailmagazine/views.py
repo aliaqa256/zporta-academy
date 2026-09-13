@@ -55,155 +55,35 @@ class TeacherMailMagazineViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
         """Send email to selected recipients (only followers with mail magazine enabled)"""
-        magazine = self.get_object()
-        
-        # Get followers (students with accepted guide relationships)
-        from social.models import GuideRequest
-        
-        # Get recipients - only users who are following this teacher (accepted guide requests)
-        accepted_followers = GuideRequest.objects.filter(
-            guide=request.user,
-            status='accepted'
-        ).select_related('explorer', 'explorer__profile')
-        
-        # Get users who opted into mail magazine
-        recipients = [
-            gr.explorer for gr in accepted_followers 
-            if hasattr(gr.explorer, 'profile') and gr.explorer.profile.mail_magazine_enabled
-        ]
-        
-        # If specific recipients were selected, filter to only those who opted in
-        if magazine.selected_recipients.exists():
-            selected_ids = set(magazine.selected_recipients.values_list('id', flat=True))
-            recipients = [r for r in recipients if r.id in selected_ids]
-        
-        if not recipients:
-            return Response(
-                {'error': 'No recipients found. Please select recipients or ensure students are enrolled in your courses.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Send emails
-        recipient_emails = [user.email for user in recipients if user.email]
-        
-        if not recipient_emails:
-            return Response(
-                {'error': 'No valid email addresses found for recipients.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        from .composition.container import build_dispatch_mail_magazine_use_case
+        from .application.dtos import SendMagazineCommand
+        from .domain.exceptions import NoEligibleRecipientsError, MailMagazineAccessDeniedError
+
+        site_url = getattr(settings, 'SITE_URL', 'https://zportaacademy.com')
+        site_name = getattr(settings, 'SITE_NAME', 'Zporta Academy')
+        site_logo = getattr(settings, 'SITE_LOGO_URL', 'https://zportaacademy.com/logo.png')
+
+        cmd = SendMagazineCommand(
+            magazine_id=int(pk),
+            teacher_id=request.user.id,
+            teacher_username=request.user.username,
+            site_url=site_url,
+            site_name=site_name,
+            site_logo_url=site_logo
+        )
+
+        use_case = build_dispatch_mail_magazine_use_case()
         try:
-            # Create issue record first to get ID for "View in browser" link
-            issue = MailMagazineIssue.objects.create(
-                magazine=magazine,
-                title=magazine.title,
-                subject=magazine.subject,
-                html_content='',  # Will update after building wrapper
-            )
-            issue.recipients.set(recipients)
-            
-            raw_html = magazine.body or ''
-            raw_subject = magazine.subject or ''
-            site_url = getattr(settings, 'SITE_URL', 'https://zportaacademy.com')
-            view_in_browser_url = f"{site_url}/mail-magazines/{issue.id}"
-            
-            # Send personalized email to each recipient
-            import re
-            from django.utils.html import escape
-            
-            for recipient in recipients:
-                # Build variables for placeholder replacement
-                variables = {
-                    'student_name': recipient.get_full_name() or recipient.username,
-                    'student_username': recipient.username,
-                    'teacher_name': request.user.get_full_name() or request.user.username,
-                    'teacher_username': request.user.username,
-                    'course_name': '',  # Not applicable for manual sends
-                    'course_title': '',
-                    'site_url': site_url,
-                }
-                
-                # Replace placeholders in subject and body
-                def render_placeholders(text):
-                    pattern = re.compile(r'{{\s*([a-zA-Z0-9_]+)\s*}}')
-                    return pattern.sub(lambda m: escape(variables.get(m.group(1), '')), text)
-                
-                personalized_subject = render_placeholders(raw_subject)
-                personalized_html = render_placeholders(raw_html)
-                
-                # Build wrapper with logo, branding header, and "View in browser" link
-                site_logo = getattr(settings, 'SITE_LOGO_URL', 'https://zportaacademy.com/logo.png')
-                site_name = getattr(settings, 'SITE_NAME', 'Zporta Academy')
-                
-                html_wrapper = f"""
-                <html>
-                  <head>
-                    <meta charset='utf-8'>
-                    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-                  </head>
-                  <body style='background:#0b1523;margin:0;padding:24px;font-family:"Segoe UI",Arial,sans-serif;color:#ffffff;'>
-                    <div style='max-width:600px;margin:0 auto;background:#142233;padding:0;border-radius:8px;overflow:hidden;'>
-                      <!-- Branding Header -->
-                      <div style='background:linear-gradient(135deg, #1e293b 0%, #0f1419 100%);padding:20px 32px;text-align:center;border-bottom:2px solid #ffb703;'>
-                        <a href='{site_url}' style='display:inline-block;text-decoration:none;'>
-                          <img src='{site_logo}' alt='{site_name}' style='max-height:50px;width:auto;margin-bottom:10px;display:block;'>
-                        </a>
-                        <h1 style='margin:0;font-size:18px;color:#ffb703;font-weight:600;'>From {site_name}</h1>
-                      </div>
-                      
-                      <!-- View in Browser Link -->
-                      <div style='background:#0b1523;padding:12px 32px;text-align:center;border-bottom:1px solid #1e293b;'>
-                        <p style='margin:0;font-size:12px;color:#94a3b8;'>Having trouble viewing this email? <a href='{view_in_browser_url}' style='color:#ffb703;text-decoration:none;font-weight:600;'>View in browser</a></p>
-                      </div>
-                      
-                      <!-- Main Content -->
-                      <div style='padding:32px;'>
-                        {personalized_html}
-                      </div>
-                      
-                      <!-- Footer -->
-                      <div style='background:#0b1523;padding:24px 32px;border-top:1px solid #1f2e40;'>
-                        <hr style='border:none;border-top:1px solid #1f2e40;margin:0 0 16px 0;' />
-                        <p style='font-size:12px;color:#94a3b8;margin:0 0 8px 0;'>You are receiving this because you subscribed to this teacher's mail magazine on {site_name}.</p>
-                        <p style='font-size:12px;color:#94a3b8;margin:0;'>
-                          <a href='{site_url}/preferences/mail-magazines' style='color:#ffb703;text-decoration:none;font-weight:600;'>Manage preferences</a> | 
-                          <a href='{site_url}' style='color:#ffb703;text-decoration:none;font-weight:600;'>Visit {site_name}</a>
-                        </p>
-                        <p style='font-size:11px;color:#64748b;margin:12px 0 0 0;'>© 2024 {site_name}. All rights reserved.</p>
-                      </div>
-                    </div>
-                  </body>
-                </html>
-                """.strip()
-                
-                plain_text = BeautifulSoup(personalized_html, 'html.parser').get_text(separator='\n', strip=True)
-                
-                # Use branded sender name instead of just email
-                sender_name = getattr(settings, 'EMAIL_SENDER_NAME', site_name)
-                from_email_with_name = f'{sender_name} <{settings.EMAIL_HOST_USER}>'
-                
-                email = EmailMultiAlternatives(
-                    subject=personalized_subject,
-                    body=plain_text,
-                    from_email=from_email_with_name,
-                    to=[recipient.email],
-                )
-                email.attach_alternative(html_wrapper, "text/html")
-                email.send(fail_silently=False)
-            
-            # Update issue with final HTML (store template version)
-            issue.html_content = raw_html
-            issue.save(update_fields=['html_content'])
-
-            # Update last sent timestamp and increment counter
-            magazine.last_sent_at = timezone.now()
-            magazine.times_sent += 1
-            magazine.save(update_fields=['last_sent_at', 'times_sent'])
-
+            result = use_case.execute(cmd)
             return Response({
                 'success': True,
-                'message': f'Email sent successfully to {len(recipient_emails)} recipients.',
-                'recipients_count': len(recipient_emails)
+                'message': result.message,
+                'recipients_count': result.recipients_count
             })
+        except NoEligibleRecipientsError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except MailMagazineAccessDeniedError as e:
+            return Response({'error': str(e)}, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return Response(
                 {'error': f'Failed to send email: {str(e)}'},
@@ -228,22 +108,32 @@ class MailMagazineIssueDetailView(RetrieveAPIView):
     permission_classes = [IsAuthenticated]
     
     def retrieve(self, request, *args, **kwargs):
-        issue = self.get_object()
-        user = request.user
-        
-        # Check access: teacher, recipient, or public
-        is_teacher = issue.magazine.teacher == user
-        is_recipient = issue.recipients.filter(id=user.id).exists()
-        is_public = issue.is_public
-        
-        if not (is_teacher or is_recipient or is_public):
+        from .composition.container import build_get_mail_issue_detail_use_case
+        from .domain.exceptions import MailMagazineIssueNotFoundError, MailMagazineAccessDeniedError
+
+        use_case = build_get_mail_issue_detail_use_case()
+        is_staff = getattr(request.user, 'is_staff', False) or getattr(request.user, 'is_superuser', False)
+
+        try:
+            issue_dto = use_case.execute(
+                issue_id=self.kwargs.get('pk'),
+                requesting_user_id=request.user.id if request.user else None,
+                is_staff=is_staff
+            )
+        except MailMagazineIssueNotFoundError:
+            return Response({'error': 'Issue not found.'}, status=status.HTTP_404_NOT_FOUND)
+        except MailMagazineAccessDeniedError:
             return Response(
                 {'error': 'You do not have permission to view this issue.'},
                 status=status.HTTP_403_FORBIDDEN
             )
-        
+
+        issue = self.get_object()
         serializer = self.get_serializer(issue)
-        return Response(serializer.data)
+        data = serializer.data
+        data['html_content'] = issue_dto.html_content
+        data['is_gated'] = issue_dto.is_gated
+        return Response(data)
 
 
 class TeacherMailMagazineIssuesListView(ListAPIView):
