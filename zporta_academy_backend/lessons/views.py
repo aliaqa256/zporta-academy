@@ -37,6 +37,7 @@ from django.conf import settings
 from urllib.parse import unquote, urlparse
 import requests
 from seo.utils import canonical_url
+from lessons.domain.policies import LessonPublishPolicy
 
 class LessonViewSet(ModelViewSet):
     serializer_class = LessonSerializer
@@ -524,29 +525,19 @@ class PublishLessonView(APIView):
         if lesson.created_by != request.user and not request.user.is_staff:
             return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Enforce premium publishing rules:
-        # If the lesson is marked as premium, it must be attached to a premium course before it can be published.
-        if lesson.is_premium:
-            # Ensure an attached course exists
-            if not lesson.course:
-                return Response(
-                    {"detail": "Premium lessons must be attached to a premium course before publishing."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            # Ensure the attached course is premium
-            if getattr(lesson.course, "course_type", None) != "premium":
-                return Response(
-                    {"detail": "Premium lessons must be attached to a premium course before publishing."},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+        # Enforce domain publishing policy
+        has_course = (lesson.course is not None)
+        is_course_premium = (getattr(lesson.course, "course_type", None) == "premium") if has_course else False
+        is_course_draft = getattr(lesson.course, "is_draft", False) if has_course else False
 
-        # Enforce course draft rule (for both free and premium)
-        if lesson.course and getattr(lesson.course, "is_draft", False):
-            return Response(
-                {"detail": "Cannot publish a lesson while its course is in draft. Publish the course first or save the lesson as draft."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        valid, error_msg = LessonPublishPolicy.validate_publishable(
+            is_premium=lesson.is_premium,
+            has_course=has_course,
+            is_course_premium=is_course_premium,
+            is_course_draft=is_course_draft,
+        )
+        if not valid:
+            return Response({"detail": error_msg}, status=status.HTTP_400_BAD_REQUEST)
 
         # After passing validations, publish the lesson.
         lesson.status = Lesson.PUBLISHED

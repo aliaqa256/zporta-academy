@@ -34,11 +34,11 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ### Pre-Change Gate:
 - [x] Run `python manage.py check` to verify zero system errors.
-- [x] Run `python manage.py test tests.characterization.test_courses_contracts --keepdb`.
+- [x] Run `python manage.py test tests.characterization.test_lessons_contracts --keepdb`.
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests: `python -m unittest discover -s courses/tests -p "test_*.py"`.
+- [x] Run pure Domain unit tests: `python -m unittest lessons/tests/domain/test_lesson_domain.py lessons/tests/application/test_lesson_use_cases.py`.
 - [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
@@ -47,6 +47,18 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 05] - Curriculum - Lessons & Content Gating Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `lessons` and content gating into Hexagonal Architecture:
+    - `lessons/domain/`: `LessonEntity`, `LessonCompletionEntity`, `ContentAccessLevel`, `ContentGatingPolicy`, `LessonPublishPolicy`, `LessonNotFoundError`, `LessonAccessDeniedError`, `InvalidLessonStateError`.
+    - `lessons/application/`: `LessonSummaryDTO`, `LessonDetailDTO`, `CompleteLessonCommand`, `LessonCompletionResultDTO`, `LessonFilterQueryDTO`, `LessonRepositoryPort`, `LessonCompletionRepositoryPort`, `GetLessonDetailUseCase`, `CompleteLessonUseCase`, `PublishLessonUseCase`, `ListLessonsUseCase`.
+    - `lessons/adapters/`: `DjangoLessonRepository` (implementing `LessonRepositoryPort` and `LessonCompletionRepositoryPort`).
+    - `lessons/composition/`: `container.py` factory constructors (`build_lesson_repository`, `build_get_lesson_detail_use_case`, `build_complete_lesson_use_case`, `build_publish_lesson_use_case`, `build_list_lessons_use_case`).
+    - `lessons/views.py`: Refactored `PublishLessonView` to delegate invariant checks to domain policies and container use cases while preserving exact permission rules and API response contracts.
+  - **Tests**: 9 domain/use-case unit tests passed in 0.001s, 32 total unit tests across all refactored domains passed in 0.006s, 15 characterization safety tests passed in 12.82s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 04] - Curriculum - Courses & Subjects Refactor
 - **Date**: 2026-09-13

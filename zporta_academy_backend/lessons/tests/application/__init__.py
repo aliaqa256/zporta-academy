@@ -1,0 +1,1 @@
+"""Lessons application tests."""
