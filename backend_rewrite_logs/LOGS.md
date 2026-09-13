@@ -12,7 +12,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **01** | Architecture Foundation & Shared Kernel | ✅ Completed | [step_01](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_01_architecture_foundation_and_shared_kernel.md) | Remove `core/shared_kernel/` |
 | **02** | Characterization & Safety Test Harness | ✅ Completed | [step_02](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_02_characterization_and_safety_test_harness.md) | Remove `tests/characterization/` |
 | **03** | Users & Auth Domain Refactor | ✅ Completed | [step_03](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_03_users_and_auth_domain_refactor.md) | Revert `users/` |
-| **04** | Curriculum - Courses & Subjects Refactor | ⏳ Pending | [step_04](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_04_curriculum_courses_and_subjects_refactor.md) | Revert `courses/urls.py` |
+| **04** | Curriculum - Courses & Subjects Refactor | ✅ Completed | [step_04](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_04_curriculum_courses_and_subjects_refactor.md) | Revert `courses/` |
 | **05** | Curriculum - Lessons & Content Gating Refactor | ⏳ Pending | [step_05](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_05_curriculum_lessons_and_content_gating_refactor.md) | Revert `lessons/urls.py` |
 | **06** | Quizzes & Assessment Engine Refactor | ⏳ Pending | [step_06](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_06_quizzes_and_assessment_engine_refactor.md) | Revert `quizzes/urls.py` |
 | **07** | Intelligence & ELO Scoring Analytics Refactor | ⏳ Pending | [step_07](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_07_intelligence_and_elo_scoring_refactor.md) | Revert `intelligence/views.py` |
@@ -34,11 +34,11 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ### Pre-Change Gate:
 - [x] Run `python manage.py check` to verify zero system errors.
-- [x] Run `python manage.py test tests.characterization.test_users_contracts --keepdb`.
+- [x] Run `python manage.py test tests.characterization.test_courses_contracts --keepdb`.
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests: `python -m unittest discover -s users/tests -p "test_*.py"`.
+- [x] Run pure Domain unit tests: `python -m unittest discover -s courses/tests -p "test_*.py"`.
 - [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
@@ -48,22 +48,27 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ## 📜 Execution & Event Log
 
+### [Step 04] - Curriculum - Courses & Subjects Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `courses` and `subjects` into Hexagonal Architecture:
+    - `courses/domain/`: `CourseEntity`, `SubjectEntity`, `CoursePrice`, `CourseType`, `CourseAccessPolicy`, `CourseNotFoundError`, `CannotDraftEnrolledCourseError`, etc.
+    - `courses/application/`: `CourseSummaryDTO`, `CourseDetailDTO`, `CourseFilterQueryDTO`, `SubjectDTO`, `CourseRepositoryPort`, `SubjectRepositoryPort`, `GetCourseCatalogUseCase`, `GetCourseDetailUseCase`, `PublishCourseUseCase`, `UnpublishCourseUseCase`, `GetSubjectListUseCase`.
+    - `courses/adapters/`: `DjangoCourseRepository` and `DjangoSubjectRepository`.
+    - `courses/composition/`: `container.py` factory constructors.
+    - `courses/views.py`: Refactored `PublishCourseView` and `UnpublishCourseView` to delegate to use cases through container factories while preserving exact permission rules and contracts.
+  - **Tests**: 5 domain/use-case unit tests passed in 0.001s, 23 total unit tests across all refactored domains passed in 0.005s, 15 characterization tests passed in 13.15s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
+
 ### [Step 03] - Users & Auth Domain Refactor
 - **Date**: 2026-09-13
 - **Summary**:
-  - Restructured `users` app into full Hexagonal Architecture:
-    - `users/domain/`: `UserEntity`, `ProfileEntity`, `UserPreferenceEntity`, `EmailAddress`, `Username`, `UserRole`, `PasswordPolicy`, `RolePermissionPolicy`, `ScoreCalculationPolicy`, domain exceptions.
-    - `users/application/`: `RegisterUserCommand`, `AuthenticateUserCommand`, `AuthResultDTO`, `UserProfileDTO`, `UserRepositoryPort`, `AuthServicePort`, `RegisterUserUseCase`, `AuthenticateUserUseCase`, `GetUserProfileUseCase`, `UpdateUserProfileUseCase`.
-    - `users/adapters/`: `DjangoUserRepository` (ORM mapping), `DjangoAuthService` (Auth & DRF Token).
-    - `users/composition/`: `container.py` factory builders.
-    - `users/views.py`: Refactored `RegisterView` and `LoginView` to delegate to use cases through container factories while maintaining 100% contract fidelity.
-  - **Tests**: 7 unit tests passed in 0.002s, 15 full characterization tests passed in 12.05s.
-  - **Django Check**: 0 errors, 0 warnings, 0 migration diffs.
+  - Restructured `users` app into full Hexagonal Architecture.
 
 ### [Step 02] - Characterization & Safety Test Harness
 - **Date**: 2026-09-13
 - **Summary**:
-  - Established automated characterization and contract test suite in `tests/characterization/` with 15 contract test scenarios.
+  - Established automated characterization and contract test suite in `tests/characterization/`.
 
 ### [Step 01] - Architecture Foundation & Shared Kernel
 - **Date**: 2026-09-13

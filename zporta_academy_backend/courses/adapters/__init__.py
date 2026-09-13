@@ -1,0 +1,1 @@
+"""Courses adapters package."""

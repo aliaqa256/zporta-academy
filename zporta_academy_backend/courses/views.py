@@ -63,39 +63,55 @@ class PublishCourseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, permalink):
+        from courses.composition.container import build_publish_course_use_case
+        from courses.domain.exceptions import CourseAccessDeniedError
+        
         course = get_object_or_404(Course.all_objects, permalink=permalink)
-        if not (request.user == course.created_by or request.user.is_staff or request.user.is_superuser):
-            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
- 
-        course.is_draft = False
-        course.save()
+        use_case = build_publish_course_use_case()
+        result = use_case.execute(
+            course_id=course.id,
+            user_id=request.user.id,
+            is_staff=(request.user.is_staff or request.user.is_superuser)
+        )
+
+        if result.is_failure:
+            err = result.unwrap_error()
+            if isinstance(err, CourseAccessDeniedError):
+                return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({"message": "Course published successfully."})
+
 
 class UnpublishCourseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, permalink):
-        course = get_object_or_404(Course.all_objects, permalink=permalink)
-        # only owner, staff, or superuser can unpublish
-        if not (request.user == course.created_by or request.user.is_staff or request.user.is_superuser):
-            return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        from courses.composition.container import build_unpublish_course_use_case
+        from courses.domain.exceptions import CourseAccessDeniedError, CannotDraftEnrolledCourseError
 
-        # cannot change locked courses
+        course = get_object_or_404(Course.all_objects, permalink=permalink)
+        
         if getattr(course, "is_locked", False):
             return Response({"error": "This course is locked and cannot be modified."},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # only allow unpublish when no one enrolled
-        has_enrollments = Enrollment.objects.filter(
-            enrollment_type="course",
-            object_id=course.id
-        ).exists()
-        if has_enrollments:
-            return Response({"error": "Cannot set to draft because enrollments exist."},
-                            status=status.HTTP_400_BAD_REQUEST)
+        use_case = build_unpublish_course_use_case()
+        result = use_case.execute(
+            course_id=course.id,
+            user_id=request.user.id,
+            is_staff=(request.user.is_staff or request.user.is_superuser)
+        )
 
-        course.is_draft = True
-        course.save(update_fields=["is_draft"])
+        if result.is_failure:
+            err = result.unwrap_error()
+            if isinstance(err, CourseAccessDeniedError):
+                return Response({"error": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+            if isinstance(err, CannotDraftEnrolledCourseError):
+                return Response({"error": "Cannot set to draft because enrollments exist."},
+                                status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": str(err)}, status=status.HTTP_400_BAD_REQUEST)
+
         return Response({"message": "Course set to draft successfully."})
 
 
