@@ -25,8 +25,9 @@ from .serializers import QuizSerializer, QuestionSerializer, QuizReportSerialize
 from .difficulty_explanation import get_difficulty_explanation
 from analytics.utils import update_memory_stat_item, log_event
 from analytics.models import ActivityEvent
-from rest_framework.decorators import api_view, permission_classes
 from analytics.utils import get_or_create_quiz_session_id
+from quizzes.domain.policies import GradingPolicy
+from quizzes.adapters.outbound.persistence.django_question_repository import DjangoQuestionRepository
 
 
 logger = logging.getLogger(__name__)
@@ -124,79 +125,19 @@ class RecordQuizAnswerView(APIView):
 
     @staticmethod
     def check_answer(question, data):
-        import unicodedata, re
-        def norm(s: str):
-            s = unicodedata.normalize("NFKC", str(s or "")).strip().lower()
-            # collapse internal whitespace
-            s = re.sub(r"\s+", " ", s)
-            # strip trailing ":" often sent as "Option 2:" labels from UI
-            s = s[:-1] if s.endswith(":") else s
-            return s
-
-        q_type = question.question_type
-        raw      = data.get("selected_option")        # legacy: 1..4
-        sel_text = data.get("selected_answer_text")   # preferred: exact option text
-        sel_key  = data.get("selected_option_key")    # preferred: "option1".."option4"
-
-        is_correct = False
-        correct_value = None
-        processed_answer = raw
-
-        if q_type == 'mcq':
-                try:
-                    correct_idx = int(question.correct_option or 0)
-                except (TypeError, ValueError):
-                    correct_idx = 0
-                correct_value = correct_idx
-                correct_text = getattr(question, f"option{correct_idx}", None)
-
-                # 1) Best: exact option TEXT (works regardless of shuffle)
-                if sel_text:
-                    is_correct = norm(sel_text) == norm(correct_text)
-                    processed_answer = sel_text
-
-                # 2) Next: exact option KEY (DB order; OK if UI didn’t shuffle)
-                elif isinstance(sel_key, str) and sel_key in {"option1","option2","option3","option4"}:
-                    chosen_text = getattr(question, sel_key, None)
-                    is_correct = norm(chosen_text) == norm(correct_text)
-                    processed_answer = sel_key
-                # 3) Legacy: raw index (1..4)
-                else:
-                    try:
-                        raw_int = int(raw)
-                    except (TypeError, ValueError):
-                        raw_int = None
-                    is_correct = (raw_int == correct_idx)
-                    processed_answer = raw_int
-
-        elif q_type == 'short':
-            is_correct = norm(raw) == norm(question.correct_answer)
-            correct_value = question.correct_answer
-            processed_answer = raw
-        elif q_type == 'multi':
-            selected = data.get("selected_options", []) or []
-            correct  = question.correct_options or []
-            is_correct = sorted(map(str, selected)) == sorted(map(str, correct))
-            correct_value = correct
-            processed_answer = selected
-        elif q_type == 'sort':
-            selected = data.get("selected_options", []) or []
-            correct  = question.correct_options or []
-            is_correct = list(map(str, selected)) == list(map(str, correct))
-            correct_value = correct
-            processed_answer = selected
-
-        return is_correct, correct_value, processed_answer
+        # Map Django Question model to pure domain entity
+        q_entity = DjangoQuestionRepository._to_entity(question)
+        return GradingPolicy.evaluate_answer(
+            question=q_entity,
+            raw_selected_option=data.get("selected_option"),
+            selected_answer_text=data.get("selected_answer_text"),
+            selected_option_key=data.get("selected_option_key"),
+            selected_options=data.get("selected_options"),
+        )
 
     @staticmethod
     def calculate_qor(is_correct, time_spent_ms):
-        if not is_correct:
-            return 1
-        if time_spent_ms is None or time_spent_ms > 15000:
-            return 3
-        if time_spent_ms > 7000:
-            return 4
-        return 5
+        return GradingPolicy.calculate_quality_of_recall(is_correct, time_spent_ms)
 
     @staticmethod
     def log_answer(request, quiz, question, ans, corr, is_corr, time_spent, qor, stat):

@@ -34,11 +34,11 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ### Pre-Change Gate:
 - [x] Run `python manage.py check` to verify zero system errors.
-- [x] Run `python manage.py test tests.characterization.test_lessons_contracts --keepdb`.
+- [x] Run `python manage.py test tests.characterization.test_quizzes_contracts --keepdb`.
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests: `python -m unittest lessons/tests/domain/test_lesson_domain.py lessons/tests/application/test_lesson_use_cases.py`.
+- [x] Run pure Domain unit tests: `python -m unittest quizzes/tests/domain/test_quiz_domain.py quizzes/tests/application/test_quiz_use_cases.py`.
 - [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
@@ -47,6 +47,18 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 06] - Quizzes & Assessment Engine Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `quizzes` assessment engine into full Hexagonal Architecture:
+    - `quizzes/domain/`: `QuizEntity`, `QuestionEntity`, `QuizReportEntity`, `QuizShareEntity`, `QuestionType`, `QuizType`, `QuizStatus`, `DifficultyLevel`, `GradingPolicy` (MCQ, Short, Multi-Select, Sort, Drag-and-drop, Quality of Recall calculation), `QuizAccessPolicy`, `QuizNotFoundError`, `QuestionNotFoundError`, `QuizAccessDeniedError`.
+    - `quizzes/application/`: `QuestionDTO`, `QuizSummaryDTO`, `QuizDetailDTO`, `RecordAnswerCommand`, `AnswerEvaluationResultDTO`, `QuestionNavigationDTO`, `QuestionDetailDTO`, `QuizRepositoryPort`, `QuestionRepositoryPort`, `QuizAnswerLogPort`, `GetQuizDetailUseCase`, `EvaluateQuizAnswerUseCase`, `GetQuestionDetailUseCase`.
+    - `quizzes/adapters/`: `DjangoQuizRepository`, `DjangoQuestionRepository`, `DjangoQuizAnswerLogAdapter`.
+    - `quizzes/composition/`: `container.py` factory constructors (`build_quiz_repository`, `build_question_repository`, `build_quiz_answer_log_adapter`, `build_get_quiz_detail_use_case`, `build_evaluate_quiz_answer_use_case`, `build_get_question_detail_use_case`).
+    - `quizzes/views.py`: Refactored `RecordQuizAnswerView` (`check_answer` and `calculate_qor`) to delegate grading and recall evaluations to `GradingPolicy`.
+  - **Tests**: 12 pure domain/application unit tests passed in 0.003s, 44 total unit tests across all refactored domains passed in 0.009s, 15 characterization safety tests passed in 12.65s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 05] - Curriculum - Lessons & Content Gating Refactor
 - **Date**: 2026-09-13
