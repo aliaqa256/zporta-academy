@@ -10,7 +10,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | :---: | :--- | :---: | :--- | :--- |
 | **00** | Rewrite Structure Initialization | ✅ Completed | [LOGS.md](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/LOGS.md) | Initial baseline |
 | **01** | Architecture Foundation & Shared Kernel | ✅ Completed | [step_01](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_01_architecture_foundation_and_shared_kernel.md) | Remove `core/shared_kernel/` |
-| **02** | Characterization & Safety Test Harness | ⏳ Pending | [step_02](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_02_characterization_and_safety_test_harness.md) | Remove `tests/characterization/` |
+| **02** | Characterization & Safety Test Harness | ✅ Completed | [step_02](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_02_characterization_and_safety_test_harness.md) | Remove `tests/characterization/` |
 | **03** | Users & Auth Domain Refactor | ⏳ Pending | [step_03](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_03_users_and_auth_domain_refactor.md) | Revert `users/urls.py` |
 | **04** | Curriculum - Courses & Subjects Refactor | ⏳ Pending | [step_04](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_04_curriculum_courses_and_subjects_refactor.md) | Revert `courses/urls.py` |
 | **05** | Curriculum - Lessons & Content Gating Refactor | ⏳ Pending | [step_05](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_05_curriculum_lessons_and_content_gating_refactor.md) | Revert `lessons/urls.py` |
@@ -37,7 +37,8 @@ Before marking any step as complete, the following checklist must be satisfied:
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests (0ms execution, zero DB): `python -m unittest discover -s core/shared_kernel/tests/`.
+- [x] Run pure Domain unit tests: `python -m unittest discover -s core/shared_kernel/tests/`.
+- [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
 - [x] Log test execution evidence in this file.
@@ -46,24 +47,26 @@ Before marking any step as complete, the following checklist must be satisfied:
 
 ## 📜 Execution & Event Log
 
+### [Step 02] - Characterization & Safety Test Harness
+- **Date**: 2026-09-13
+- **Summary**:
+  - Established automated characterization and contract test suite in `tests/characterization/`:
+    - `fixtures/standard_test_data.py`: Deterministic factories for Users, Profiles, Courses, Lessons, Quizzes, Questions, and Abilities.
+    - `test_users_contracts.py`: Validates Register, Login, Profile, and Progress Overview responses.
+    - `test_courses_contracts.py`: Validates Course list, Course detail (with dynamic permalink and nested structure), and Subject list.
+    - `test_lessons_contracts.py`: Validates Lesson list and dynamic Lesson detail.
+    - `test_quizzes_contracts.py`: Validates Quiz list, Quiz detail, and interactive Quiz answer submissions.
+    - `test_intelligence_contracts.py`: Validates Ability rating, Learning path, and Progress insights.
+  - **Contract Tests**: 15 tests executed and passing with 100% OK status (`Ran 15 tests in 12.55s - OK`).
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
+
 ### [Step 01] - Architecture Foundation & Shared Kernel
 - **Date**: 2026-09-13
 - **Summary**:
-  - Implemented `core/shared_kernel/` package containing framework-agnostic building blocks:
-    - `BaseEntity[ID]` with entity identity equality.
-    - `ValueObject`, `Slug`, `Money` domain value types.
-    - Railway-oriented `Result[T, E]`, `Success`, `Failure`, `ok()`, `err()` functional error handling monad.
-    - Base domain exceptions (`DomainException`, `EntityNotFoundError`, `InvariantViolationError`, `UnauthorizedDomainActionError`).
-    - Ports: `ClockPort`, `BaseRepositoryPort[EntityT, ID]`.
-    - DTOs: `PaginationQueryDTO`, `PaginatedResultDTO[T]`.
-    - Adapters: `SystemClock`, `FrozenClock`.
+  - Implemented `core/shared_kernel/` package containing framework-agnostic building blocks (`BaseEntity`, `ValueObject`, `Slug`, `Money`, `Result[T, E]`, base exceptions, `ClockPort`, `BaseRepositoryPort`, pagination DTOs, and system/frozen clock adapters).
   - **Tests**: 11 unit tests executed in 0.002s (all passing with 100% success).
-  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 00] - Rewrite Structure & Roadmap Initialization
 - **Date**: 2026-09-13
 - **Summary**:
-  - Analyzed the full backend codebase (Django REST Framework, SQLite/PostgreSQL, DailyCast, Intelligence ELO scoring, WeasyPrint, AI Gateways).
-  - Drafted architecture guidelines, completeness guarantees, and validation protocols in [rewrite_agents.md](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/rewrite_agents.md).
-  - Created 16 granular, modular step definitions in [backend_rewrite_logs/steps/](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/) following the [Hexagonal Architecture Skill](file:///home/aliaqa/zporta-academy/.agents/skills/hexagonal-architecture/SKILL.md).
-- **Rollback / Backoff Notes**: Baseline established with 0 modifications to production source code.
+  - Analyzed the full backend codebase, drafted architecture guidelines and validation protocols in [rewrite_agents.md](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/rewrite_agents.md), and created 16 modular step definitions in [backend_rewrite_logs/steps/](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/).
