@@ -20,7 +20,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **09** | DailyCast Podcast Generation Engine Refactor | ✅ Completed | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
 | **10** | Document & Media Export Subsystem Refactor | ✅ Completed | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
 | **11** | Learning, Spaced Repetition & Study Flow | ✅ Completed | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
-| **12** | Payments, Enrollment & Subscription Gating | ⏳ Pending | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
+| **12** | Payments, Enrollment & Subscription Gating | ✅ Completed | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
 | **13** | Mail Magazine & Gated Preview Subsystem | ⏳ Pending | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
 | **14** | Feed, Social & Gamification Refactor | ⏳ Pending | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
 | **15** | Platform Edge, Bulk Import & Admin Decoupling | ⏳ Pending | [step_15](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_15_platform_edge_bulk_import_and_admin_decoupling.md) | Revert edge views |
@@ -38,7 +38,7 @@ Before marking any step as complete, the following checklist must be satisfied:
 - [x] Confirm baseline response codes, payload structure, and database integrity.
 
 ### Post-Change Gate:
-- [x] Run pure Domain unit tests: `python -m unittest intelligence/tests/domain/test_intelligence_domain.py intelligence/tests/application/test_intelligence_use_cases.py`.
+- [x] Run pure Domain unit tests: `python -m unittest ...`.
 - [x] Run Characterization regression suite: `python manage.py test tests/characterization --keepdb`.
 - [x] Run Django migration & integrity check: `python manage.py check && python manage.py makemigrations --check --dry-run`.
 - [x] Verify frontend and backend dev servers run uninterrupted.
@@ -47,6 +47,20 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 12] - Payments, Enrollment & Subscription Gating Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `enrollment` and `payments` apps into full Hexagonal Architecture:
+    - `enrollment/domain/`: `EnrollmentEntity`, `ShareInviteEntity`, `EnrollmentStatus`, `EnrollmentType`, `EnrollmentAccessPolicy` (pure access rules for active/expired enrollments, owner/staff bypass, share token expiry & claim limits), domain exceptions (`EnrollmentDomainError`, `AlreadyEnrolledError`, `AccessDeniedError`, `EnrollmentExpiredError`, `InviteExpiredError`).
+    - `enrollment/application/`: `EnrollUserCommand`, `EnrollmentDTO`, `CheckAccessQuery`, `AccessResultDTO`, `EnrollmentRepositoryPort`, `EnrollUserInCourseUseCase`, `CheckUserAccessUseCase`.
+    - `enrollment/adapters/`: `DjangoEnrollmentRepository` (dynamic ContentType resolution for courses, quizzes, and lessons).
+    - `enrollment/composition/`: `container.py` factory constructors (`build_enrollment_repository`, `build_enroll_user_use_case`, `build_check_access_use_case`).
+    - `payments/domain/`: `PaymentEntity`, `PromoCodeEntity`, `PaymentStatus`, `Currency`, `PaymentValidationPolicy` (amount validation, discount calculations, promo code applicability and expiry), domain exceptions (`PaymentDomainError`, `InvalidPaymentAmountError`, `PromoCodeExpiredError`, `PromoCodeNotFoundError`).
+    - `payments/application/`: `CreateCheckoutCommand`, `CheckoutSessionDTO`, `ConfirmPaymentCommand`, `PaymentResultDTO`, `PaymentGatewayPort`, `PaymentRepositoryPort`, `ProcessCheckoutUseCase`, `ConfirmPaymentUseCase`.
+    - `payments/adapters/`: `DjangoPaymentRepository` (ORM persistence), `StripeGatewayAdapter` (Stripe integration with dev/test mock fallback).
+    - `payments/composition/`: `container.py` factory constructors (`build_payment_repository`, `build_payment_gateway`, `build_process_checkout_use_case`, `build_confirm_payment_use_case`).
+  - **Tests**: 9 new domain & use-case unit tests (4 in enrollment, 5 in payments), 2 characterization contract tests (`test_enrollment_contracts.py`), 77 total unit tests across all refactored domains passed in 0.015s, 23 characterization safety tests passed in 19.85s. Django system check identified 0 issues and 0 pending migrations.
 
 ### [Step 11] - Learning, Spaced Repetition & Study Flow Refactor
 - **Date**: 2026-09-13
