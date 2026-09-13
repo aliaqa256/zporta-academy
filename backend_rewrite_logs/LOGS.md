@@ -19,7 +19,7 @@ This document tracks all changes, refactoring steps, migration checkpoints, and 
 | **08** | AI Core & Multi-Provider LLM Gateway | ✅ Completed | [step_08](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_08_ai_core_and_multi_provider_llm_gateway.md) | Revert `ai_core/services.py` |
 | **09** | DailyCast Podcast Generation Engine Refactor | ✅ Completed | [step_09](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_09_dailycast_podcast_generation_engine_refactor.md) | Revert `dailycast/` URLs & admin |
 | **10** | Document & Media Export Subsystem Refactor | ✅ Completed | [step_10](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_10_document_and_media_export_subsystem_refactor.md) | Revert to `pdf_utils.py` |
-| **11** | Learning, Spaced Repetition & Study Flow | ⏳ Pending | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
+| **11** | Learning, Spaced Repetition & Study Flow | ✅ Completed | [step_11](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_11_learning_spaced_repetition_and_study_flow.md) | Revert `learning/urls.py` |
 | **12** | Payments, Enrollment & Subscription Gating | ⏳ Pending | [step_12](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_12_payments_enrollment_and_subscription_gating.md) | Revert `payments/`, `enrollment/` |
 | **13** | Mail Magazine & Gated Preview Subsystem | ⏳ Pending | [step_13](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_13_mail_magazine_and_gated_preview_subsystem.md) | Revert `mailmagazine/urls.py` |
 | **14** | Feed, Social & Gamification Refactor | ⏳ Pending | [step_14](file:///home/aliaqa/zporta-academy/backend_rewrite_logs/steps/step_14_feed_social_and_gamification_refactor.md) | Revert `feed/`, `social/` |
@@ -47,6 +47,18 @@ Before marking any step as complete, the following checklist must be satisfied:
 ---
 
 ## 📜 Execution & Event Log
+
+### [Step 11] - Learning, Spaced Repetition & Study Flow Refactor
+- **Date**: 2026-09-13
+- **Summary**:
+  - Restructured `learning` and spaced repetition into full Hexagonal Architecture:
+    - `learning/domain/`: `StudyItemEntity`, `LearningRecordEntity`, `UserNoteEntity`, `StudyDashboardEntity`, `ReviewRating` (`AGAIN`, `HARD`, `GOOD`, `EASY`), `NotePrivacy`, `StudyEventType`, `SpacedRepetitionPolicy` (pure SM-2 algorithm calculating repetition intervals, ease factors, and due dates), `StudyRecommendationPolicy` (aggregates subject interest and balances enrolled/suggested items), `NoteAccessPolicy` (view/edit authorization), domain exceptions (`LearningDomainError`, `StudyCardNotFoundError`, `NotePermissionDeniedError`, `InvalidReviewRatingError`).
+    - `learning/application/`: `LearningRecordDTO`, `StudyDashboardDTO`, `ReviewCardCommand`, `ReviewResultDTO`, `LearningRepositoryPort`, `GetStudyDashboardUseCase`, `ProcessSpacedRepetitionReviewUseCase`.
+    - `learning/adapters/`: `DjangoLearningRepository` (aggregating enrollments, courses, quizzes, and next lessons).
+    - `learning/composition/`: `container.py` factory constructors (`build_learning_repository`, `build_get_study_dashboard_use_case`, `build_process_spaced_repetition_review_use_case`).
+    - `learning/views.py`: Refactored `StudyDashboardView` to delegate dashboard building to `GetStudyDashboardUseCase`.
+  - **Tests**: 8 domain/use-case unit tests passed in 0.002s, 67 total unit tests across all refactored domains passed in 0.012s, 21 characterization safety tests passed in 18.58s.
+  - **Django Check**: 0 errors, 0 warnings, 0 unapplied migration diffs.
 
 ### [Step 10] - Document & Media Export Subsystem Refactor
 - **Date**: 2026-09-13
